@@ -14,13 +14,14 @@ import static org.restlet.data.MediaType.APPLICATION_WWW_FORM;
 import static org.restlet.data.MediaType.MULTIPART_FORM_DATA;
 import static org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST;
 
-import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import static org.restlet.engine.util.StringUtils.isNullOrEmpty;
 import org.restlet.ext.fileupload.RestletFileUpload;
 import org.restlet.representation.Representation;
 import org.restlet.resource.Post;
@@ -30,7 +31,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class AnyServerResource extends ServerResource {
-    
+
+    public static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir");
     private static Logger LOGGER = LoggerFactory.getLogger(AnyServerResource.class);
 
     @Post
@@ -93,7 +95,6 @@ public class AnyServerResource extends ServerResource {
             // 3/ Request is parsed by the handler which generates a list of FileItems
             items = upload.parseRequest(getRequest());
 
-            File file = null;
             for (final Iterator<FileItem> it = items.iterator(); it.hasNext(); ) {
                 FileItem fi = it.next();
                 String name = fi.getName();
@@ -104,14 +105,15 @@ public class AnyServerResource extends ServerResource {
                     LOGGER.info(format("Reading entry: (%s, %s)", fieldName, value));
                     addEntry(result, fieldName, value);
                 } else {
-                    String tempDir = System.getProperty("java.io.tmpdir");
-                    Path filePath = Paths.get(tempDir).resolve(fieldName + filesCount++ + ".txt");
-                    file = filePath.toFile();
-                    if (!file.exists()) {
-                        file.createNewFile();
+                    String fileName = isNullOrEmpty(name) ? fieldName + filesCount++ : name;
+                    Path filePath = Paths.get(TEMP_FOLDER).resolve(fileName);
+
+                    if (!Files.exists(filePath)) {
+                        Files.createFile(filePath);
                     }
+
                     fi.getInputStream();
-                    fi.write(file);
+                    fi.write(filePath.toFile());
 
                     LOGGER.info(format("Wrote file entry for %s to %s", fieldName, filePath.toString()));
                     addEntry(result, fieldName, name + ":=>" + filePath.toString());
