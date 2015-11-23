@@ -17,7 +17,7 @@ public class FormServerApplication extends Application {
     @Override
     public Restlet createInboundRoot() {
         Router router = new Router();
-        router.attachDefault(PersonServerResource.class);
+        router.attachDefault(AnyServerResource.class);
         return router;
     }
 }
