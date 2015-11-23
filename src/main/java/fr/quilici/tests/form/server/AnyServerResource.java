@@ -7,9 +7,14 @@
 
 package fr.quilici.tests.form.server;
 
+import static java.lang.String.format;
+import static java.net.URLDecoder.decode;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.restlet.data.MediaType.APPLICATION_WWW_FORM;
+import static org.restlet.data.MediaType.MULTIPART_FORM_DATA;
+import static org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST;
+
 import java.io.File;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -20,38 +25,37 @@ import java.util.Map;
 
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
-import org.restlet.data.MediaType;
-import org.restlet.data.Status;
 import org.restlet.ext.fileupload.RestletFileUpload;
 import org.restlet.representation.Representation;
 import org.restlet.resource.Post;
 import org.restlet.resource.ResourceException;
 import org.restlet.resource.ServerResource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AnyServerResource extends ServerResource {
+    
+    private static Logger LOGGER = LoggerFactory.getLogger(AnyServerResource.class);
 
     @Post
     public Map<String, List<String>> handlePost(Representation entity) {
-        String queryValue = getQueryValue("@test");
-        if (queryValue != null) {
-            System.out.println(String.format("Query param @test found: %s", queryValue));
-        }
-
 
         if (entity != null) {
-            System.out.println("Media type: " + entity.getMediaType());
-            if (MediaType.APPLICATION_WWW_FORM.equals(entity.getMediaType(), true)) {
+            LOGGER.info("Media type: " + entity.getMediaType());
+            if (APPLICATION_WWW_FORM.equals(entity.getMediaType(), true)) {
                 return handleFormUrlEncoded(entity);
-            } else if (MediaType.MULTIPART_FORM_DATA.equals(entity.getMediaType(), true)) {
+            } else if (MULTIPART_FORM_DATA.equals(entity.getMediaType(), true)) {
                 return handleMultipartFormData();
             } else {
-                throw new ResourceException(Status.CLIENT_ERROR_BAD_REQUEST,
-                        String.format("The media type is neither %s nor %s.",
-                                MediaType.MULTIPART_FORM_DATA.getName(),
-                                MediaType.APPLICATION_WWW_FORM.getName()));
+                ResourceException e = new ResourceException(CLIENT_ERROR_BAD_REQUEST,
+                        format("The media type is neither %s nor %s.",
+                                MULTIPART_FORM_DATA.getName(),
+                                APPLICATION_WWW_FORM.getName()));
+                LOGGER.error("Exception thrown.", e);
+                throw e;
             }
         } else {
-            throw new ResourceException(Status.CLIENT_ERROR_BAD_REQUEST, "The input entity is null.");
+            throw new ResourceException(CLIENT_ERROR_BAD_REQUEST, "The input entity is null.");
         }
     }
 
@@ -68,15 +72,12 @@ public class AnyServerResource extends ServerResource {
                 String key = parametersPair[0];
                 String value = parametersPair[1];
 
-                System.out.println(String.format("Reading entry: (%s, %s)", key, value));
-                addEntry(
-                    result,
-                    URLDecoder.decode(key, StandardCharsets.UTF_8.toString()),
-                    URLDecoder.decode(value, StandardCharsets.UTF_8.toString())
-                );
+                LOGGER.info(format("Reading entry: (%s, %s)", key, value));
+                addEntry(result, decode(key, UTF_8.toString()), decode(value, UTF_8.toString()));
             }
         } catch (Exception e) {
-            throw new ResourceException(Status.CLIENT_ERROR_BAD_REQUEST, e);
+            LOGGER.error("Exception thrown.", e);
+            throw new ResourceException(CLIENT_ERROR_BAD_REQUEST, e);
         }
         return result;
     }
@@ -104,7 +105,7 @@ public class AnyServerResource extends ServerResource {
                 if (name == null) {
                     String value = new String(fi.get(), "UTF-8");
 
-                    System.out.println(String.format("Reading entry: (%s, %s)", fieldName, value));
+                    LOGGER.info(format("Reading entry: (%s, %s)", fieldName, value));
                     addEntry(result, fieldName, value);
                 } else {
                     String tempDir = System.getProperty("java.io.tmpdir");
@@ -116,13 +117,14 @@ public class AnyServerResource extends ServerResource {
                     fi.getInputStream();
                     fi.write(file);
 
-                    System.out.println(String.format("Wrote file entry for %s to %s", fieldName, filePath.toString()));
+                    LOGGER.info(format("Wrote file entry for %s to %s", fieldName, filePath.toString()));
                     addEntry(result, fieldName, name + ":=>" + filePath.toString());
                 }
             }
             return result;
         } catch (Exception e) {
-            throw new ResourceException(Status.CLIENT_ERROR_BAD_REQUEST, e);
+            LOGGER.error("Exception thrown.", e);
+            throw new ResourceException(CLIENT_ERROR_BAD_REQUEST, e);
         }
     }
 
