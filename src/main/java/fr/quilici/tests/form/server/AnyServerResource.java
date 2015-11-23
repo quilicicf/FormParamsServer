@@ -17,11 +17,7 @@ import static org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
@@ -132,7 +128,7 @@ public class AnyServerResource extends ServerResource {
         if (result.containsKey(fieldName)) {
             result.get(fieldName).add(value);
         } else {
-            result.put(fieldName, Arrays.asList(value));
+            result.put(fieldName, new ArrayList<>(Arrays.asList(value)));
         }
     }
 }
